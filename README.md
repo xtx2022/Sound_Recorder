@@ -1,2 +1,5 @@
-# Sound_Recorder
- It's a sound recorder.
+# Sound Recorder Project
+Description: It's a sound recorder.
+
+### Project Phase 1
+
