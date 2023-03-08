@@ -1,0 +1,106 @@
+classdef GUI_Phase1 < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure      matlab.ui.Figure
+        PlayButton    matlab.ui.control.Button
+        RecordButton  matlab.ui.control.Button
+        UIAxes        matlab.ui.control.UIAxes
+    end
+
+    
+    properties (Access = private)
+        myVoice % voice
+        myrecording % record
+    end
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: RecordButton
+        function RecordButtonPushed(app, event)
+            clc
+            clear
+            close all
+            Fs = 44800; % 采样率
+            nBits = 16; % 采样位数
+            nChannel = 1; % 音频通道数 1: 单声道 2：立体声
+            time = 5; % 采样时间
+            app.myVioce = audiorecorder(Fs, nBits, nChannel);
+            disp('Start Speaking...')
+            recordblocking(app.myVioce, time);
+            disp('End of Speak')
+            app.myrecording = getaudiodata(app.myVioce);
+            scatter(app.UIAxes, app.myrecording) % for debug
+            plot(app.myrecording) % for debug
+        end
+
+        % Button pushed function: PlayButton
+        function PlayButtonPushed(app, event)
+            Fs = 44800; % 频率
+            sound(app.myVoice, Fs);
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.UIFigure);
+            title(app.UIAxes, 'Audio Signal')
+            xlabel(app.UIAxes, 'Time')
+            ylabel(app.UIAxes, 'Amplitude')
+            zlabel(app.UIAxes, 'Z')
+            app.UIAxes.Position = [279 249 300 185];
+
+            % Create RecordButton
+            app.RecordButton = uibutton(app.UIFigure, 'push');
+            app.RecordButton.ButtonPushedFcn = createCallbackFcn(app, @RecordButtonPushed, true);
+            app.RecordButton.Position = [88 366 100 23];
+            app.RecordButton.Text = 'Record';
+
+            % Create PlayButton
+            app.PlayButton = uibutton(app.UIFigure, 'push');
+            app.PlayButton.ButtonPushedFcn = createCallbackFcn(app, @PlayButtonPushed, true);
+            app.PlayButton.Position = [88 305 100 23];
+            app.PlayButton.Text = 'Play';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = GUI_Phase1
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
