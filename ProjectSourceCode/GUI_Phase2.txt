@@ -93,10 +93,10 @@ classdef GUI_Phase2 < matlab.apps.AppBase
             if (isempty(app.mySpectrum)) 
                 return;
             end
-            disp(size(app.fAxis));
             kernel = zeros(size(app.fAxis));
             cutoff = app.CutoffFrequencyHzEditField.Value;
             type = app.TypeDropDown.Value;
+            
             if (strcmp(type, 'Ideal'))
                 for k = 1:length(app.fAxis)
                     if abs(app.fAxis(k)) < cutoff
@@ -149,8 +149,7 @@ classdef GUI_Phase2 < matlab.apps.AppBase
 
         % Value changed function: TypeDropDown
         function TypeDropDownValueChanged(app, event)
-            value = app.TypeDropDown.Value;
-            disp(value);
+            return;
         end
     end
 
