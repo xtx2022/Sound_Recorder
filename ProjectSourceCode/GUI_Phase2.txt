@@ -1,0 +1,271 @@
+classdef GUI_Phase2 < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                    matlab.ui.Figure
+        RecoverButton               matlab.ui.control.Button
+        CutoffFrequencyHzEditField  matlab.ui.control.NumericEditField
+        CutoffFrequencyHzEditFieldLabel  matlab.ui.control.Label
+        TypeDropDown                matlab.ui.control.DropDown
+        TypeDropDownLabel           matlab.ui.control.Label
+        LowPassFilteringButton      matlab.ui.control.Button
+        AddGaussianNoiseButton      matlab.ui.control.Button
+        PlayButton                  matlab.ui.control.Button
+        RecordButton                matlab.ui.control.Button
+        UIAxes_2                    matlab.ui.control.UIAxes
+        UIAxes                      matlab.ui.control.UIAxes
+    end
+
+    properties (Access = private)
+        myAudiodata = [];
+        myVoice = [];
+        mySpectrum = [];
+        Fs = 44800; % 采样率
+        Time = 5; % 采样时间
+        tAxis = linspace(0, 5, round(5 * 44800));
+        fAxis = linspace(-44800 / 2, 44800 / 2 - 1, 5 * 44800);
+    end
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: RecordButton
+        function RecordButtonPushed(app, event)
+            close all
+
+            % Fs = 44800; % 采样率
+            % nBits = 16; % 采样位数
+            % nChannel = 1; % 音频通道数 1: 单声道 2：立体声
+            mv = audiorecorder(app.Fs, 16, 1);
+            disp('Start Speaking...')
+            recordblocking(mv, app.Time);
+            disp('End of Speak')
+            app.myVoice = mv;
+            app.myAudiodata = getaudiodata(mv); 
+            app.mySpectrum = fftshift(fft(app.myAudiodata)); 
+
+            plot(app.UIAxes, app.tAxis, app.myAudiodata, 'b-', 'LineWidth', 1)
+            plot(app.UIAxes_2, app.fAxis, abs(app.mySpectrum), 'b-', 'LineWidth', 1)
+        end
+
+        % Button pushed function: PlayButton
+        function PlayButtonPushed(app, event)
+            sound(app.myAudiodata, app.Fs);
+        end
+
+        % Button down function: UIAxes
+        function UIAxesButtonDown(app, event)
+            if (isempty(app.myAudiodata)) 
+                return;
+            end
+            plot(app.tAxis, app.myAudiodata, 'b-', 'LineWidth', 1);
+            xlabel('Time/s');
+            ylabel('Amplitude');
+            title('Audio Signal');
+        end
+
+        % Button pushed function: AddGaussianNoiseButton
+        function AddGaussianNoiseButtonPushed(app, event)
+            if (isempty(app.myAudiodata)) 
+                return;
+            end
+            std = 0.003;
+            app.myAudiodata = app.myAudiodata + std * randn(app.Fs * app.Time, 1);
+            app.mySpectrum = fftshift(fft(app.myAudiodata)); 
+
+            plot(app.UIAxes, app.tAxis, app.myAudiodata, 'b-', 'LineWidth', 1)
+            plot(app.UIAxes_2, app.fAxis, abs(app.mySpectrum), 'b-', 'LineWidth', 1)
+        end
+
+        % Button down function: UIAxes_2
+        function UIAxes_2ButtonDown(app, event)
+            if (isempty(app.mySpectrum)) 
+                return;
+            end
+            plot(app.fAxis, app.mySpectrum, 'b-', 'LineWidth', 1);
+            xlabel('Frequency/Hz');
+            ylabel('Amplitude');
+            title('Audio Spectrum');
+        end
+
+        % Button pushed function: LowPassFilteringButton
+        function LowPassFilteringButtonPushed(app, event)
+            if (isempty(app.mySpectrum)) 
+                return;
+            end
+            disp(size(app.fAxis));
+            kernel = zeros(size(app.fAxis));
+            cutoff = app.CutoffFrequencyHzEditField.Value;
+            type = app.TypeDropDown.Value;
+            if (strcmp(type, 'Ideal'))
+                for k = 1:length(app.fAxis)
+                    if abs(app.fAxis(k)) < cutoff
+                        kernel(k) = 1;
+                    end
+                end
+            elseif (strcmp(type, 'Linear'))
+                slope = (1 - sqrt(1/2)) / cutoff;
+                for k = 1:length(app.fAxis)
+                    if app.fAxis(k) > 0
+                        if (1 - slope * app.fAxis(k) > 0)
+                            kernel(k) = 1 - slope * app.fAxis(k);
+                        end
+                    else
+                        if (1 + slope * app.fAxis(k) > 0)
+                            kernel(k) = 1 + slope * app.fAxis(k);
+                        end
+                    end
+                end
+            elseif (strcmp(type, 'Analog'))
+                for k = 1:length(app.fAxis)
+                    kernel(k) = 1/complex(1, app.fAxis(k)/cutoff);
+                end
+            elseif (strcmp(type, 'Gaussian'))
+                gamma = 0.5 * log(2) / (cutoff * cutoff);
+                for k = 1:length(app.fAxis)
+                    kernel(k) = exp(-gamma * app.fAxis(k) * app.fAxis(k));
+                end
+            end
+            app.mySpectrum = kernel' .* app.mySpectrum;
+            app.myAudiodata = real(ifft(ifftshift(app.mySpectrum)));
+            
+            plot(app.UIAxes, app.tAxis, app.myAudiodata, 'b-', 'LineWidth', 1)
+            plot(app.UIAxes_2, app.fAxis, abs(app.mySpectrum), 'b-', 'LineWidth', 1)
+        end
+
+        % Value changed function: CutoffFrequencyHzEditField
+        function CutoffFrequencyHzEditFieldValueChanged(app, event)
+            return;
+        end
+
+        % Button pushed function: RecoverButton
+        function RecoverButtonPushed(app, event)
+            app.myAudiodata = getaudiodata(app.myVoice); 
+            app.mySpectrum = fftshift(fft(app.myAudiodata)); 
+
+            plot(app.UIAxes, app.tAxis, app.myAudiodata, 'b-', 'LineWidth', 1)
+            plot(app.UIAxes_2, app.fAxis, abs(app.mySpectrum), 'b-', 'LineWidth', 1)
+        end
+
+        % Value changed function: TypeDropDown
+        function TypeDropDownValueChanged(app, event)
+            value = app.TypeDropDown.Value;
+            disp(value);
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.UIFigure);
+            title(app.UIAxes, 'Audio Signal')
+            xlabel(app.UIAxes, 'Time/s')
+            ylabel(app.UIAxes, 'Amplitude')
+            zlabel(app.UIAxes, 'Z')
+            app.UIAxes.ButtonDownFcn = createCallbackFcn(app, @UIAxesButtonDown, true);
+            app.UIAxes.Position = [284 252 304 160];
+
+            % Create UIAxes_2
+            app.UIAxes_2 = uiaxes(app.UIFigure);
+            title(app.UIAxes_2, 'Audio Spectrum')
+            xlabel(app.UIAxes_2, 'Frequency/Hz')
+            ylabel(app.UIAxes_2, 'Amplitude')
+            zlabel(app.UIAxes_2, 'Z')
+            app.UIAxes_2.ButtonDownFcn = createCallbackFcn(app, @UIAxes_2ButtonDown, true);
+            app.UIAxes_2.Position = [284 74 304 160];
+
+            % Create RecordButton
+            app.RecordButton = uibutton(app.UIFigure, 'push');
+            app.RecordButton.ButtonPushedFcn = createCallbackFcn(app, @RecordButtonPushed, true);
+            app.RecordButton.Position = [88 356 100 23];
+            app.RecordButton.Text = 'Record';
+
+            % Create PlayButton
+            app.PlayButton = uibutton(app.UIFigure, 'push');
+            app.PlayButton.ButtonPushedFcn = createCallbackFcn(app, @PlayButtonPushed, true);
+            app.PlayButton.Position = [88 305 100 23];
+            app.PlayButton.Text = 'Play';
+
+            % Create AddGaussianNoiseButton
+            app.AddGaussianNoiseButton = uibutton(app.UIFigure, 'push');
+            app.AddGaussianNoiseButton.ButtonPushedFcn = createCallbackFcn(app, @AddGaussianNoiseButtonPushed, true);
+            app.AddGaussianNoiseButton.Position = [76 252 125 23];
+            app.AddGaussianNoiseButton.Text = 'Add Gaussian Noise';
+
+            % Create LowPassFilteringButton
+            app.LowPassFilteringButton = uibutton(app.UIFigure, 'push');
+            app.LowPassFilteringButton.ButtonPushedFcn = createCallbackFcn(app, @LowPassFilteringButtonPushed, true);
+            app.LowPassFilteringButton.Position = [81 201 114 23];
+            app.LowPassFilteringButton.Text = 'Low Pass Filtering';
+
+            % Create TypeDropDownLabel
+            app.TypeDropDownLabel = uilabel(app.UIFigure);
+            app.TypeDropDownLabel.HorizontalAlignment = 'right';
+            app.TypeDropDownLabel.Position = [64 143 32 22];
+            app.TypeDropDownLabel.Text = 'Type';
+
+            % Create TypeDropDown
+            app.TypeDropDown = uidropdown(app.UIFigure);
+            app.TypeDropDown.Items = {'Ideal', 'Linear', 'Analog', 'Gaussian'};
+            app.TypeDropDown.ValueChangedFcn = createCallbackFcn(app, @TypeDropDownValueChanged, true);
+            app.TypeDropDown.Position = [111 143 100 22];
+            app.TypeDropDown.Value = 'Ideal';
+
+            % Create CutoffFrequencyHzEditFieldLabel
+            app.CutoffFrequencyHzEditFieldLabel = uilabel(app.UIFigure);
+            app.CutoffFrequencyHzEditFieldLabel.HorizontalAlignment = 'right';
+            app.CutoffFrequencyHzEditFieldLabel.Position = [21 172 119 22];
+            app.CutoffFrequencyHzEditFieldLabel.Text = 'Cut-off Frequency/Hz';
+
+            % Create CutoffFrequencyHzEditField
+            app.CutoffFrequencyHzEditField = uieditfield(app.UIFigure, 'numeric');
+            app.CutoffFrequencyHzEditField.Limits = [0 22400];
+            app.CutoffFrequencyHzEditField.ValueChangedFcn = createCallbackFcn(app, @CutoffFrequencyHzEditFieldValueChanged, true);
+            app.CutoffFrequencyHzEditField.Position = [155 172 100 22];
+            app.CutoffFrequencyHzEditField.Value = 8000;
+
+            % Create RecoverButton
+            app.RecoverButton = uibutton(app.UIFigure, 'push');
+            app.RecoverButton.ButtonPushedFcn = createCallbackFcn(app, @RecoverButtonPushed, true);
+            app.RecoverButton.Position = [88 92 100 23];
+            app.RecoverButton.Text = 'Recover';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = GUI_Phase2
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
