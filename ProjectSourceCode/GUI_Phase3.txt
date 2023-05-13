@@ -3,6 +3,8 @@ classdef GUI_Phase3 < matlab.apps.AppBase
     % Properties that correspond to app components
     properties (Access = public)
         UIFigure                    matlab.ui.Figure
+        ShowPowerSpectrumofGaussianNoiseButton  matlab.ui.control.Button
+        DenoisebyPowerSpectrumSubtractionButton  matlab.ui.control.Button
         RecoverButton               matlab.ui.control.Button
         CutoffFrequencyHzEditField  matlab.ui.control.NumericEditField
         CutoffFrequencyHzEditFieldLabel  matlab.ui.control.Label
@@ -12,6 +14,7 @@ classdef GUI_Phase3 < matlab.apps.AppBase
         AddGaussianNoiseButton      matlab.ui.control.Button
         PlayButton                  matlab.ui.control.Button
         RecordButton                matlab.ui.control.Button
+        UIAxes2                     matlab.ui.control.UIAxes
         UIAxes_2                    matlab.ui.control.UIAxes
         UIAxes                      matlab.ui.control.UIAxes
     end
@@ -24,6 +27,8 @@ classdef GUI_Phase3 < matlab.apps.AppBase
         Time = 5; % 采样时间
         tAxis = linspace(0, 5, round(5 * 44800));
         fAxis = linspace(-44800 / 2, 44800 / 2 - 1, 5 * 44800);
+        NoisePowerSpectrum = [];
+        NoiseAverageEnergy = 0;
     end
 
     % Callbacks that handle component events
@@ -151,6 +156,53 @@ classdef GUI_Phase3 < matlab.apps.AppBase
         function TypeDropDownValueChanged(app, event)
             return;
         end
+
+        % Button pushed function: ShowPowerSpectrumofGaussianNoiseButton
+        function ShowPowerSpectrumofGaussianNoiseButtonPushed(app, event)
+            std = 0.003;
+            Noisedata = std * randn(app.Fs * app.Time, 1);
+            app.NoisePowerSpectrum = abs(fftshift(fft(Noisedata))).^2;
+            plot(app.UIAxes2, app.fAxis, abs(app.NoisePowerSpectrum), 'b-', 'LineWidth', 1)
+            app.NoiseAverageEnergy = mean(app.NoisePowerSpectrum);
+            disp(app.NoisePowerSpectrum);%for debug
+        end
+
+        % Button pushed function: DenoisebyPowerSpectrumSubtractionButton
+        function DenoisebyPowerSpectrumSubtractionButtonPushed(app, event)
+            if (isempty(app.mySpectrum)) 
+                return;
+            end
+            kernel = zeros(size(app.fAxis));
+            disp(app.NoiseAverageEnergy); %for debug
+            for k = 1:length(app.fAxis)
+                SpectEnergy = abs(app.mySpectrum(k))^2;
+                kernel(k) = 1 - app.NoiseAverageEnergy/SpectEnergy; 
+                if (kernel(k) > 0)
+                    kernel(k) = sqrt(kernel(k));
+                else
+                    kernel(k) = 0;
+                end
+            end
+            for i = 1:10
+                disp(kernel(i))
+            end %for debug
+            app.mySpectrum = kernel' .* app.mySpectrum;
+            app.myAudiodata = real(ifft(ifftshift(app.mySpectrum)));
+            
+            plot(app.UIAxes, app.tAxis, app.myAudiodata, 'b-', 'LineWidth', 1)
+            plot(app.UIAxes_2, app.fAxis, abs(app.mySpectrum), 'b-', 'LineWidth', 1)
+        end
+
+        % Button down function: UIAxes2
+        function UIAxes2ButtonDown(app, event)
+            if (isempty(app.NoisePowerSpectrum)) 
+                return;
+            end
+            plot(app.fAxis, app.NoisePowerSpectrum, 'b-', 'LineWidth', 1);
+            xlabel('Frequency/Hz');
+            ylabel('Energy');
+            title('Power Spectrum of Gaussian Noise');
+        end
     end
 
     % Component initialization
@@ -171,7 +223,7 @@ classdef GUI_Phase3 < matlab.apps.AppBase
             ylabel(app.UIAxes, 'Amplitude')
             zlabel(app.UIAxes, 'Z')
             app.UIAxes.ButtonDownFcn = createCallbackFcn(app, @UIAxesButtonDown, true);
-            app.UIAxes.Position = [284 252 304 160];
+            app.UIAxes.Position = [290 325 272 139];
 
             % Create UIAxes_2
             app.UIAxes_2 = uiaxes(app.UIFigure);
@@ -180,63 +232,84 @@ classdef GUI_Phase3 < matlab.apps.AppBase
             ylabel(app.UIAxes_2, 'Amplitude')
             zlabel(app.UIAxes_2, 'Z')
             app.UIAxes_2.ButtonDownFcn = createCallbackFcn(app, @UIAxes_2ButtonDown, true);
-            app.UIAxes_2.Position = [284 74 304 160];
+            app.UIAxes_2.Position = [290 177 272 138];
+
+            % Create UIAxes2
+            app.UIAxes2 = uiaxes(app.UIFigure);
+            title(app.UIAxes2, 'Power Spectrum of Gaussian Noise')
+            xlabel(app.UIAxes2, 'Frequency/Hz')
+            ylabel(app.UIAxes2, 'Energy')
+            zlabel(app.UIAxes2, 'Z')
+            app.UIAxes2.ButtonDownFcn = createCallbackFcn(app, @UIAxes2ButtonDown, true);
+            app.UIAxes2.Position = [290 28 272 138];
 
             % Create RecordButton
             app.RecordButton = uibutton(app.UIFigure, 'push');
             app.RecordButton.ButtonPushedFcn = createCallbackFcn(app, @RecordButtonPushed, true);
-            app.RecordButton.Position = [88 356 100 23];
+            app.RecordButton.Position = [89 411 100 23];
             app.RecordButton.Text = 'Record';
 
             % Create PlayButton
             app.PlayButton = uibutton(app.UIFigure, 'push');
             app.PlayButton.ButtonPushedFcn = createCallbackFcn(app, @PlayButtonPushed, true);
-            app.PlayButton.Position = [88 305 100 23];
+            app.PlayButton.Position = [88 374 100 23];
             app.PlayButton.Text = 'Play';
 
             % Create AddGaussianNoiseButton
             app.AddGaussianNoiseButton = uibutton(app.UIFigure, 'push');
             app.AddGaussianNoiseButton.ButtonPushedFcn = createCallbackFcn(app, @AddGaussianNoiseButtonPushed, true);
-            app.AddGaussianNoiseButton.Position = [76 252 125 23];
+            app.AddGaussianNoiseButton.Position = [75 334 125 23];
             app.AddGaussianNoiseButton.Text = 'Add Gaussian Noise';
 
             % Create LowPassFilteringButton
             app.LowPassFilteringButton = uibutton(app.UIFigure, 'push');
             app.LowPassFilteringButton.ButtonPushedFcn = createCallbackFcn(app, @LowPassFilteringButtonPushed, true);
-            app.LowPassFilteringButton.Position = [81 201 114 23];
+            app.LowPassFilteringButton.Position = [81 283 114 23];
             app.LowPassFilteringButton.Text = 'Low Pass Filtering';
 
             % Create TypeDropDownLabel
             app.TypeDropDownLabel = uilabel(app.UIFigure);
             app.TypeDropDownLabel.HorizontalAlignment = 'right';
-            app.TypeDropDownLabel.Position = [64 143 32 22];
+            app.TypeDropDownLabel.Position = [65 230 32 22];
             app.TypeDropDownLabel.Text = 'Type';
 
             % Create TypeDropDown
             app.TypeDropDown = uidropdown(app.UIFigure);
             app.TypeDropDown.Items = {'Ideal', 'Linear', 'Analog', 'Gaussian'};
             app.TypeDropDown.ValueChangedFcn = createCallbackFcn(app, @TypeDropDownValueChanged, true);
-            app.TypeDropDown.Position = [111 143 100 22];
+            app.TypeDropDown.Position = [112 230 100 22];
             app.TypeDropDown.Value = 'Ideal';
 
             % Create CutoffFrequencyHzEditFieldLabel
             app.CutoffFrequencyHzEditFieldLabel = uilabel(app.UIFigure);
             app.CutoffFrequencyHzEditFieldLabel.HorizontalAlignment = 'right';
-            app.CutoffFrequencyHzEditFieldLabel.Position = [21 172 119 22];
+            app.CutoffFrequencyHzEditFieldLabel.Position = [21 254 119 22];
             app.CutoffFrequencyHzEditFieldLabel.Text = 'Cut-off Frequency/Hz';
 
             % Create CutoffFrequencyHzEditField
             app.CutoffFrequencyHzEditField = uieditfield(app.UIFigure, 'numeric');
             app.CutoffFrequencyHzEditField.Limits = [0 22400];
             app.CutoffFrequencyHzEditField.ValueChangedFcn = createCallbackFcn(app, @CutoffFrequencyHzEditFieldValueChanged, true);
-            app.CutoffFrequencyHzEditField.Position = [155 172 100 22];
+            app.CutoffFrequencyHzEditField.Position = [155 254 100 22];
             app.CutoffFrequencyHzEditField.Value = 8000;
 
             % Create RecoverButton
             app.RecoverButton = uibutton(app.UIFigure, 'push');
             app.RecoverButton.ButtonPushedFcn = createCallbackFcn(app, @RecoverButtonPushed, true);
-            app.RecoverButton.Position = [88 92 100 23];
+            app.RecoverButton.Position = [88 54 100 23];
             app.RecoverButton.Text = 'Recover';
+
+            % Create DenoisebyPowerSpectrumSubtractionButton
+            app.DenoisebyPowerSpectrumSubtractionButton = uibutton(app.UIFigure, 'push');
+            app.DenoisebyPowerSpectrumSubtractionButton.ButtonPushedFcn = createCallbackFcn(app, @DenoisebyPowerSpectrumSubtractionButtonPushed, true);
+            app.DenoisebyPowerSpectrumSubtractionButton.Position = [21 124 234 23];
+            app.DenoisebyPowerSpectrumSubtractionButton.Text = 'Denoise by Power Spectrum Subtraction';
+
+            % Create ShowPowerSpectrumofGaussianNoiseButton
+            app.ShowPowerSpectrumofGaussianNoiseButton = uibutton(app.UIFigure, 'push');
+            app.ShowPowerSpectrumofGaussianNoiseButton.ButtonPushedFcn = createCallbackFcn(app, @ShowPowerSpectrumofGaussianNoiseButtonPushed, true);
+            app.ShowPowerSpectrumofGaussianNoiseButton.Position = [18 165 241 23];
+            app.ShowPowerSpectrumofGaussianNoiseButton.Text = 'Show Power Spectrum of Gaussian Noise';
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
