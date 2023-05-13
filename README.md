@@ -20,3 +20,7 @@
 
 ##### d. Press the "Recover" button to recover the original signal (before adding noise and filtering).
 
+### Functions Added in Project Phase 3
+##### a. Press the "Measure Power Spectrum of Gaussian Noise" button to measure the power spectrum of Gaussian noise. After measurement, the result would be shown on the right.
+
+##### b. Press the "Denoise by Power Spectrum Subtraction" button to denoise the audio signal by the power subtraction denoising method.

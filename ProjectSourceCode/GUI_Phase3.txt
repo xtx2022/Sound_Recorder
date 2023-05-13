@@ -3,7 +3,7 @@ classdef GUI_Phase3 < matlab.apps.AppBase
     % Properties that correspond to app components
     properties (Access = public)
         UIFigure                    matlab.ui.Figure
-        ShowPowerSpectrumofGaussianNoiseButton  matlab.ui.control.Button
+        MeasurePowerSpectrumofGaussianNoiseButton  matlab.ui.control.Button
         DenoisebyPowerSpectrumSubtractionButton  matlab.ui.control.Button
         RecoverButton               matlab.ui.control.Button
         CutoffFrequencyHzEditField  matlab.ui.control.NumericEditField
@@ -157,14 +157,13 @@ classdef GUI_Phase3 < matlab.apps.AppBase
             return;
         end
 
-        % Button pushed function: ShowPowerSpectrumofGaussianNoiseButton
-        function ShowPowerSpectrumofGaussianNoiseButtonPushed(app, event)
+        % Button pushed function: MeasurePowerSpectrumofGaussianNoiseButton
+        function MeasurePowerSpectrumofGaussianNoiseButtonPushed(app, event)
             std = 0.003;
             Noisedata = std * randn(app.Fs * app.Time, 1);
             app.NoisePowerSpectrum = abs(fftshift(fft(Noisedata))).^2;
             plot(app.UIAxes2, app.fAxis, abs(app.NoisePowerSpectrum), 'b-', 'LineWidth', 1)
             app.NoiseAverageEnergy = mean(app.NoisePowerSpectrum);
-            disp(app.NoisePowerSpectrum);%for debug
         end
 
         % Button pushed function: DenoisebyPowerSpectrumSubtractionButton
@@ -173,19 +172,15 @@ classdef GUI_Phase3 < matlab.apps.AppBase
                 return;
             end
             kernel = zeros(size(app.fAxis));
-            disp(app.NoiseAverageEnergy); %for debug
             for k = 1:length(app.fAxis)
                 SpectEnergy = abs(app.mySpectrum(k))^2;
-                kernel(k) = 1 - app.NoiseAverageEnergy/SpectEnergy; 
+                kernel(k) = 1 - 5 * app.NoiseAverageEnergy/SpectEnergy; 
                 if (kernel(k) > 0)
                     kernel(k) = sqrt(kernel(k));
                 else
                     kernel(k) = 0;
                 end
             end
-            for i = 1:10
-                disp(kernel(i))
-            end %for debug
             app.mySpectrum = kernel' .* app.mySpectrum;
             app.myAudiodata = real(ifft(ifftshift(app.mySpectrum)));
             
@@ -302,14 +297,14 @@ classdef GUI_Phase3 < matlab.apps.AppBase
             % Create DenoisebyPowerSpectrumSubtractionButton
             app.DenoisebyPowerSpectrumSubtractionButton = uibutton(app.UIFigure, 'push');
             app.DenoisebyPowerSpectrumSubtractionButton.ButtonPushedFcn = createCallbackFcn(app, @DenoisebyPowerSpectrumSubtractionButtonPushed, true);
-            app.DenoisebyPowerSpectrumSubtractionButton.Position = [21 124 234 23];
+            app.DenoisebyPowerSpectrumSubtractionButton.Position = [22 129 234 23];
             app.DenoisebyPowerSpectrumSubtractionButton.Text = 'Denoise by Power Spectrum Subtraction';
 
-            % Create ShowPowerSpectrumofGaussianNoiseButton
-            app.ShowPowerSpectrumofGaussianNoiseButton = uibutton(app.UIFigure, 'push');
-            app.ShowPowerSpectrumofGaussianNoiseButton.ButtonPushedFcn = createCallbackFcn(app, @ShowPowerSpectrumofGaussianNoiseButtonPushed, true);
-            app.ShowPowerSpectrumofGaussianNoiseButton.Position = [18 165 241 23];
-            app.ShowPowerSpectrumofGaussianNoiseButton.Text = 'Show Power Spectrum of Gaussian Noise';
+            % Create MeasurePowerSpectrumofGaussianNoiseButton
+            app.MeasurePowerSpectrumofGaussianNoiseButton = uibutton(app.UIFigure, 'push');
+            app.MeasurePowerSpectrumofGaussianNoiseButton.ButtonPushedFcn = createCallbackFcn(app, @MeasurePowerSpectrumofGaussianNoiseButtonPushed, true);
+            app.MeasurePowerSpectrumofGaussianNoiseButton.Position = [9 165 259 23];
+            app.MeasurePowerSpectrumofGaussianNoiseButton.Text = 'Measure Power Spectrum of Gaussian Noise';
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
